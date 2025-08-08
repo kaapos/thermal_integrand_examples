@@ -126,7 +126,7 @@ class SymbolicaIntegrand(Integrand):
                 "template<typename T> T csch(T x) { return T(1)/std::sinh(x); }"
             )
 
-            evaluator.compile('integrand', cpp_path, so_path, inline_asm='default', custom_header=custom_header)
+            evaluator.compile('integrand', cpp_path, so_path, 'real', inline_asm='default', custom_header=custom_header)
             del evaluator
             gc.collect()
         
@@ -134,7 +134,7 @@ class SymbolicaIntegrand(Integrand):
             compile_evaluator()
             self.force_rebuild = False
         
-        self.compiled_evaluator = CompiledEvaluator.load(so_path, 'integrand', self.n_vars , 1)
+        self.compiled_evaluator = CompiledRealEvaluator.load(so_path, 'integrand', self.n_vars , 1)
 
     def _ensure_compiled_evaluator(self):
         if self.compiled_evaluator is None:

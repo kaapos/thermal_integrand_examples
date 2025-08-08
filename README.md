@@ -4,10 +4,10 @@ Examples demonstrating the evaluation of loop integrands at finite temperature a
 
 ## Dependencies
 
-This project requires the **factorint branch** of Symbolica:
+This project requires the **export branch** of Symbolica:
 
 ```bash
-pip install git+https://github.com/benruijl/symbolica.git@factorint
+pip install git+https://github.com/benruijl/symbolica.git@export
 ```
 
 ## Installation
