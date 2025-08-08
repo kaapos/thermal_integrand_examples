@@ -11,7 +11,7 @@ def example_symbolica_integrand():
     print("=== SymbolicaIntegrand Example ===")
 
     # Set up parameters for the sunset2T example
-    params = np.array([1.0, 2.0, 3.0, ])  # Physical parameters: mUV, mu, 1/T
+    params = np.array([6.283185307179586, 3.141592653589793, 1.0])  # Physical parameters: mUV=2*pi*T, mu=pi*T, 1/T=1
     path_to_example = "examples/sunset2T"  # Path to the example
 
     print(f"Parameters: {params}")
