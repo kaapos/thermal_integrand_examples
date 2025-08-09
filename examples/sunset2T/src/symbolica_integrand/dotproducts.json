@@ -1,8 +1,0 @@
-{
-	"sp1":"ke1x^2 + ke1y^2 + ke1z^2",
-	"sp2":"ke1x*ke2x + ke1y*ke2y + ke1z*ke2z",
-	"sp3":"-ke1x^2 - ke1y^2 - ke1z^2 + ke1x*ke2x + ke1y*ke2y + ke1z*ke2z",
-	"sp4":"ke1x*ke2x - ke2x^2 + ke1y*ke2y - ke2y^2 + ke1z*ke2z - ke2z^2",
-	"sp5":"ke2x^2 + ke2y^2 + ke2z^2",
-	"sp6":"ke1x^2 + ke1y^2 + ke1z^2 + ke2x^2 + ke2y^2 + ke2z^2 - 2*(ke1x*ke2x + ke1y*ke2y + ke1z*ke2z)"
-}

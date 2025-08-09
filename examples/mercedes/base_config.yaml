@@ -1,0 +1,39 @@
+# Physical parameters
+parameters: [6.283185307179586, 3.141592653589793, 1.0, ]  # Physical parameters for both sampler and integrand
+
+# Sampler configuration
+sampler:
+  type: spherical_sampler  # Module name for the sampler
+  parameters:
+    mcpow: 4
+    mcpowf: 0
+    a: 1.0
+    b: 1.0
+    cut: 0.0
+    cutIR: 0.0
+    force_rebuild: false
+
+# Integrand configuration
+integrand:
+  type: symbolica_integrand  # Module name for the integrand evaluator
+  parameters:
+    do_stability_check: true
+    rotation_seed: 42
+    stability_tolerance: 1e-7
+    stability_abs_threshold: 1e-20
+    n_shots: 4
+    force_rebuild: false
+
+# Integration settings
+integration:
+  neval: 1000000
+  nbatch: 1000000
+  nhcube: 1000000
+  nitn: 5
+  nproc: 4
+
+# Output configuration
+output:
+  results_dir: results
+  warmup_save: save_train.pkl
+  final_save: save.pkl
