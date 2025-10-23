@@ -48,14 +48,6 @@ ipython_config.py
 *.out
 *.err
 
-# Plots and figures
-*.png
-*.jpg
-*.jpeg
-*.pdf
-*.eps
-*.svg
-
 # Temporary files
 *.tmp
 *.temp
