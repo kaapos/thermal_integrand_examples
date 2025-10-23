@@ -4,7 +4,8 @@ Example usage of the SymbolicaIntegrand class.
 """
 
 import numpy as np
-from symbolica_integrand import SymbolicaIntegrand
+from integrands.symbolica_integrand import SymbolicaIntegrand
+from samplers.sampler import SamplerResult
 
 def example_symbolica_integrand():
     """Example of using the SymbolicaIntegrand"""
@@ -22,7 +23,6 @@ def example_symbolica_integrand():
         params=params,
         path_to_example=path_to_example,
         force_rebuild=False,
-        do_stability_check=True,
         stability_tolerance=1e-7,
         stability_abs_threshold=1e-15,
         rotation_seed=42,
@@ -38,11 +38,12 @@ def example_symbolica_integrand():
     # Generate some random jacobian and loop momentum input
     n_points = 10000
     np.random.seed(42)
+    weights = np.ones((n_points, 1))
     jacobians = np.random.rand(n_points)
     loop_momenta = np.random.rand(n_points, integrand.n_loops, integrand.dim)
 
     print(f"\nEvaluating integrand for {n_points} points...")
-    result = integrand.evaluate(jacobian_array=jacobians, loop_momentum_array=loop_momenta)
+    result = integrand.evaluate(SamplerResult(weight_array=weights, jacobian_array=jacobians, loop_momentum_array=loop_momenta))
 
     print(f"✓ Evaluation completed!")
     print(f"  Values shape: {result.values.shape}")
@@ -62,7 +63,7 @@ def example_symbolica_integrand():
     print(f"Updated parameters: {integrand.params}")
 
     # Evaluate again with new parameters
-    result2 = integrand.evaluate(jacobian_array=jacobians[:10], loop_momentum_array=loop_momenta[:10])
+    result2 = integrand.evaluate(SamplerResult(weight_array=weights[:10], jacobian_array=jacobians[:10], loop_momentum_array=loop_momenta[:10]))
     print(f"New values: {result2.values[:5]}")
 
 if __name__ == "__main__":

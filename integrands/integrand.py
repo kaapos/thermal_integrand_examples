@@ -1,8 +1,9 @@
 import numpy as np
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from samplers.sampler import SamplerResult
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class IntegrandResult:
     """Result of an integrand evaluation.
     
@@ -13,7 +14,7 @@ class IntegrandResult:
     """
     values: np.ndarray
     success: np.ndarray
-    timing_us_per_point: float
+    timing_us_per_point: float = 0.0
 
 class Integrand(ABC):
     """Abstract base class for integrand evaluators."""
@@ -31,12 +32,11 @@ class Integrand(ABC):
         self.timing_us_per_point = 0.0
 
     @abstractmethod
-    def evaluate(self, jacobian_array: np.ndarray, loop_momentum_array: np.ndarray) -> IntegrandResult:
+    def evaluate(self, sampler_result: SamplerResult) -> IntegrandResult:
         """Evaluate the integrand for given momenta and jacobian.
         
         Args:
-            jacobian_array: 1D array of jacobian values, shape (n_points,)
-            loop_momentum_array: Array of loop momenta, shape (n_points, n_loops, dim)
+            sampler_result: SamplerResult object containing jacobian_array and loop_momentum_array
             
         Returns:
             IntegrandResult containing the computed values, success flags, and timing
