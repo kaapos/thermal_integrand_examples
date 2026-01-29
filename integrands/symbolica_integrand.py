@@ -40,6 +40,8 @@ class SymbolicaIntegrand(Integrand):
         stability_abs_tolerance: float = 1e-15,
         stability_abs_threshold: float = 1e-12,
         escalate_large_weight_multiplier: float = -1.0,
+        escalate_small_momentum_multiplier: float = -1.0,
+        escalate_large_momentum_multiplier: float = -1.0,
         rotation_seed: int = None,
         n_shots: int = 3,
         build_eagerly: bool = True,
@@ -56,6 +58,8 @@ class SymbolicaIntegrand(Integrand):
             stability_abs_tolerance: Threshold for the absolute stability check
             stability_abs_threshold: Threshold for the switch between absolute and relative stability check
             escalate_large_weight_multiplier: Escalate to high precision if the weight is larger than this multiplier times the maximum weight. If negative, do not escalate.
+            escalate_small_momentum_multiplier: Escalate to high precision if any of the loop momenta is smaller than this multiplier times the unit energy. If negative, do not escalate.
+            escalate_large_momentum_multiplier: Escalate to high precision if any of the loop momenta is larger than this multiplier times the unit energy. If negative, do not escalate.
             rotation_seed: Seed for the random rotation matrix
             n_shots: Number of evaluations in stability check (original + n_shots-1 rotations)
             build_eagerly: Whether to build the evaluator eagerly
@@ -68,6 +72,8 @@ class SymbolicaIntegrand(Integrand):
         self.stability_abs_tolerance = float(stability_abs_tolerance)
         self.stability_abs_threshold = float(stability_abs_threshold)
         self.escalate_large_weight_multiplier = float(escalate_large_weight_multiplier)
+        self.escalate_small_momentum_multiplier = float(escalate_small_momentum_multiplier)
+        self.escalate_large_momentum_multiplier = float(escalate_large_momentum_multiplier)
         self.max_weight = 0.0
         self.rotation_seed = rotation_seed
         self.n_shots = int(n_shots)
@@ -305,6 +311,19 @@ class SymbolicaIntegrand(Integrand):
         """
 
         n_points = base_result.shape[0]
+        epsilon = 1e-20  # Small value to avoid division by zero
+        stability_mask = np.zeros(n_points, dtype=bool)
+
+        loop_momentum_norm = np.linalg.norm(loop_momentum_array, axis=2)
+
+        # Mark points as unstable if any of the loop momenta is smaller than the escalate_small_momentum_multiplier
+        if self.escalate_small_momentum_multiplier > 0.0:
+            stability_mask |= np.any(loop_momentum_norm < self.escalate_small_momentum_multiplier, axis=1)
+
+        # Mark points as unstable if any of the loop momenta is larger than the escalate_large_momentum_multiplier
+        if self.escalate_large_momentum_multiplier > 0.0:
+            stability_mask |= np.any(loop_momentum_norm > self.escalate_large_momentum_multiplier, axis=1)
+
         all_results_array = np.empty((self.n_shots, n_points))
 
         # Collect all results: original + rotations around random axes
@@ -318,9 +337,6 @@ class SymbolicaIntegrand(Integrand):
         average_result = np.mean(all_results_array, axis=0)  # Shape: (n_points,)
 
         # Check stability by comparing each result against the average
-        epsilon = 1e-20  # Small value to avoid division by zero
-        stability_mask = np.zeros(n_points, dtype=bool)
-
         for i in range(self.n_shots):
             single_result = all_results_array[i]
 

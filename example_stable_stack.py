@@ -38,6 +38,8 @@ def example_stable_stack():
         stability_abs_threshold=1e-15,
         stability_abs_tolerance=1e-15,
         escalate_large_weight_multiplier=0.9,
+        escalate_small_momentum_multiplier=1e-3,
+        escalate_large_momentum_multiplier=1e3,
         n_shots=3,
         rotation_seed=1337,
     )
@@ -52,6 +54,8 @@ def example_stable_stack():
         prec=200,
         n_shots=1,
         escalate_large_weight_multiplier=-1.0,
+        escalate_small_momentum_multiplier=-1.0,
+        escalate_large_momentum_multiplier=-1.0,
     )
 
     print(f"\nIntegrand properties:")

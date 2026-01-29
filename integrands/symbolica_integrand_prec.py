@@ -27,6 +27,8 @@ class SymbolicaIntegrandPrec(SymbolicaIntegrand):
         stability_abs_tolerance: float = 1e-15,
         stability_abs_threshold: float = 1e-12,
         escalate_large_weight_multiplier: float = -1.0,
+        escalate_small_momentum_multiplier: float = -1.0,
+        escalate_large_momentum_multiplier: float = -1.0,
         rotation_seed: int = None,
         n_shots: int = 3,
         sum_orientations: bool = True,
@@ -42,6 +44,8 @@ class SymbolicaIntegrandPrec(SymbolicaIntegrand):
             stability_abs_tolerance: Threshold for the absolute stability check
             stability_abs_threshold: Threshold for the switch between absolute and relative stability check
             escalate_large_weight_multiplier: Escalate to high precision if the weight is larger than this multiplier times the maximum weight. If negative, do not escalate.
+            escalate_small_momentum_multiplier: Escalate to high precision if any of the loop momenta is smaller than this multiplier times the unit energy. If negative, do not escalate.
+            escalate_large_momentum_multiplier: Escalate to high precision if any of the loop momenta is larger than this multiplier times the unit energy. If negative, do not escalate.
             rotation_seed: Seed for the random rotation matrix
             n_shots: Number of evaluations in stability check (original + n_shots-1 rotations)
             sum_orientations: Whether to sum over all orientations
@@ -56,6 +60,8 @@ class SymbolicaIntegrandPrec(SymbolicaIntegrand):
             stability_abs_tolerance=stability_abs_tolerance,
             stability_abs_threshold=stability_abs_threshold,
             escalate_large_weight_multiplier=escalate_large_weight_multiplier,
+            escalate_small_momentum_multiplier=escalate_small_momentum_multiplier,
+            escalate_large_momentum_multiplier=escalate_large_momentum_multiplier,
             rotation_seed=rotation_seed,
             n_shots=n_shots,
             build_eagerly=False,
