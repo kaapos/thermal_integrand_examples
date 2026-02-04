@@ -19,7 +19,7 @@ def example_stable_stack():
     print("=== StableStack Example ===")
 
     # Set up parameters for the sunset example
-    params = np.array([1.0, 2.0, 3.0])
+    params = np.array([6.283185307179586, 3.141592653589793, 1.0])
     path_to_example = "examples/sunset"  # Path to the example
 
     print(f"Parameters: {params}")
@@ -34,8 +34,8 @@ def example_stable_stack():
         force_rebuild=False,
         sum_orientations=True,
         runtime_summation=False,
-        stability_tolerance=1e-14,
-        stability_abs_threshold=1e-15,
+        stability_tolerance=1e-5,
+        stability_abs_threshold=1e-12,
         stability_abs_tolerance=1e-15,
         escalate_large_weight_multiplier=0.9,
         escalate_small_momentum_multiplier=1e-3,
@@ -51,7 +51,7 @@ def example_stable_stack():
         path_to_example=path_to_example,
         sum_orientations=True,
         runtime_summation=False,
-        prec=200,
+        prec=100,
         n_shots=1,
         escalate_large_weight_multiplier=-1.0,
         escalate_small_momentum_multiplier=-1.0,
