@@ -49,6 +49,7 @@ def example_stable_stack():
     integrand_precise = SymbolicaIntegrandPrec(
         params=params,
         path_to_example=path_to_example,
+        force_rebuild=False,
         sum_orientations=True,
         runtime_summation=False,
         prec=100,

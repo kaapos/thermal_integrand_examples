@@ -1,2 +1,2 @@
 numpy
-git+https://github.com/kaapos/symbolica.git@enhanced_python_api_symbolica_1.0
+git+https://github.com/symbolica-dev/symbolica.git@dev

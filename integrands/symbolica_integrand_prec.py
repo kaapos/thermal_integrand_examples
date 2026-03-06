@@ -22,6 +22,7 @@ class SymbolicaIntegrandPrec(SymbolicaIntegrand):
         self,
         params: np.ndarray,
         path_to_example: str,
+        force_rebuild: bool = False,
         prec: int = 80,
         stability_tolerance: float = 1e-3,
         stability_abs_tolerance: float = 1e-15,
@@ -39,6 +40,7 @@ class SymbolicaIntegrandPrec(SymbolicaIntegrand):
         Args:
             params: Array of physical parameters
             path_to_example: Path to the example directory containing src (e.g., 'examples/sunset2')
+            force_rebuild: Force rebuilding the high-precision evaluator even if it exists
             prec: Precision for the high-precision evaluator
             stability_tolerance: Threshold for the relative stability check
             stability_abs_tolerance: Threshold for the absolute stability check
@@ -51,7 +53,7 @@ class SymbolicaIntegrandPrec(SymbolicaIntegrand):
             sum_orientations: Whether to sum over all orientations
             runtime_summation: If True and sum_orientations=True, sum orientations at runtime instead of pre-compiling them. Reduces memory but increases evaluation time.
         """
-        # We do not need force_rebuild here; pass False to the base
+        # We do not need force_rebuild for the base class; pass False to the base
         super().__init__(
             params=params,
             path_to_example=path_to_example,
@@ -68,6 +70,7 @@ class SymbolicaIntegrandPrec(SymbolicaIntegrand):
             sum_orientations=sum_orientations,
             runtime_summation=runtime_summation
         )
+        self.force_rebuild = bool(force_rebuild)
         self.prec = int(prec)
         self._evaluator = None
         # Build evaluator
@@ -82,9 +85,101 @@ class SymbolicaIntegrandPrec(SymbolicaIntegrand):
         super().__setstate__(state)
         self._evaluator = None
 
+    def _to_decimal(self, value):
+        """Convert value to Decimal and pad trailing zeros up to self.prec."""
+        if isinstance(value, Decimal):
+            dec = value
+        else:
+            dec = Decimal(str(value))
+
+        if not dec.is_finite():
+            return dec
+
+        fractional_digits = -dec.as_tuple().exponent if dec.as_tuple().exponent < 0 else 0
+        if fractional_digits >= self.prec:
+            # print(f"Fractional digits are already greater than or equal to self.prec. Returning original value.")
+            return dec
+
+        target = Decimal(1).scaleb(-self.prec)
+
+        dec_tuple = dec.as_tuple()
+        # quantize() can raise InvalidOperation if context precision is too small
+        # for the coefficient after scale alignment. Size context dynamically.
+        digits_in_coeff = len(dec_tuple.digits)
+        extra_scale_digits = max(0, dec_tuple.exponent + self.prec)
+        required_prec = max(self.prec + 10, digits_in_coeff + extra_scale_digits + 10, 64)
+        with localcontext(Context(prec=required_prec)):
+            return dec.quantize(target)
+
     def _ensure_evaluator(self):
         """Prepare the high-precision evaluator."""
         if self._evaluator is not None:
+            return
+
+        build_dir = os.path.join(self.path_to_example, "build", "symbolica_integrand")
+        os.makedirs(build_dir, exist_ok=True)
+        example_name = os.path.basename(os.path.normpath(self.path_to_example))
+        if self.sum_orientations and not self.runtime_summation:
+            evaluator_path = os.path.join(build_dir, f"integrand_{example_name}.evaluator")
+        else:
+            evaluator_path = os.path.join(build_dir, f"integrand_{example_name}_rho_term.evaluator")
+
+        def _tanh_decimal(x: Decimal) -> Decimal:
+            # tanh(x) = sign(x) * (1 - e^{-2|x|})/(1 + e^{-2|x|})
+            with localcontext(Context(prec=self.prec)):
+                ctx = getcontext()
+                ax = x.copy_abs()
+                t = ctx.exp(Decimal(-2) * ax)
+                y = (Decimal(1) - t) / (Decimal(1) + t)
+                return self._to_decimal(-y if x.is_signed() else y)
+        
+        def _coth_decimal(x: Decimal) -> Decimal:
+            # coth(x) = sign(x) * (1 + e^{-2|x|})/(1 - e^{-2|x|}), singular at x=0
+            with localcontext(Context(prec=self.prec)):
+                if x == 0:
+                    return Decimal('Infinity')
+                ctx = getcontext()
+                ax = x.copy_abs()
+                t = ctx.exp(Decimal(-2) * ax)
+                den = (Decimal(1) - t)
+                if den == 0:
+                    return Decimal('-Infinity') if x.is_signed() else Decimal('Infinity')
+                y = (Decimal(1) + t) / den
+                return self._to_decimal(-y if x.is_signed() else y)
+        
+        def _sech_decimal(x: Decimal) -> Decimal:
+            # sech(x) = 2 e^{-|x|} / (1 + e^{-2|x|}) = 2 t / (1 + t^2)
+            with localcontext(Context(prec=self.prec)):
+                ctx = getcontext()
+                ax = x.copy_abs()
+                t = ctx.exp(-ax)
+                return self._to_decimal((Decimal(2) * t) / (Decimal(1) + t * t))
+        
+        def _csch_decimal(x: Decimal) -> Decimal:
+            # csch(x) = sign(x) * 2 e^{-|x|} / (1 - e^{-2|x|}) = sign(x) * 2 t / (1 - t^2)
+            with localcontext(Context(prec=self.prec)):
+                if x == 0:
+                    return Decimal('Infinity')
+                ctx = getcontext()
+                ax = x.copy_abs()
+                t = ctx.exp(-ax)
+                den = (Decimal(1) - t * t)
+                if den == 0:
+                    return Decimal('-Infinity') if x.is_signed() else Decimal('Infinity')
+                y = (Decimal(2) * t) / den
+                return self._to_decimal(-y if x.is_signed() else y)
+        
+        external_functions = {
+            (S("Tanh"), "tanh"): lambda args: _tanh_decimal(args[0]),
+            (S("Coth"), "coth"): lambda args: _coth_decimal(args[0]),
+            (S("Sech"), "sech"): lambda args: _sech_decimal(args[0]),
+            (S("Csch"), "csch"): lambda args: _csch_decimal(args[0]),
+        }
+
+        if (not self.force_rebuild) and os.path.exists(evaluator_path) and os.path.getsize(evaluator_path) > 0:
+            with open(evaluator_path, "rb") as f:
+                evaluator_bytes = f.read()
+            self._evaluator = Evaluator.load(evaluator_bytes, external_functions=external_functions)
             return
 
         loop_momentum_vars = [S(x) for x in self.config["loop_momentum_components"]]
@@ -96,7 +191,7 @@ class SymbolicaIntegrandPrec(SymbolicaIntegrand):
         vars_list = loop_momentum_vars + sign_vars + param_vars
 
         functions = {}
-        functions[(S("ose"), "ose", (S("sp"), S("m")))] = E("(sp+m^2)^0.5")
+        functions[(S("ose"), "ose", (S("sp"), S("m")))] = E("sqrt(sp+m^2)")
 
         dot_products = self.config["dot_products"]
 
@@ -126,71 +221,22 @@ class SymbolicaIntegrandPrec(SymbolicaIntegrand):
         # Replace sp variables with sp functions in integrand dynamically
         for sp_name, _ in dot_products.items():
             integrand = integrand.replace(S(sp_name), S(sp_name)(*loop_momentum_vars))
-        
-        def _tanh_decimal(x: Decimal) -> Decimal:
-            # tanh(x) = sign(x) * (1 - e^{-2|x|})/(1 + e^{-2|x|})
-            with localcontext(Context(prec=self.prec)):
-                ctx = getcontext()
-                ax = x.copy_abs()
-                t = ctx.exp(Decimal(-2) * ax)
-                y = (Decimal(1) - t) / (Decimal(1) + t)
-                return -y if x.is_signed() else y
-        
-        def _coth_decimal(x: Decimal) -> Decimal:
-            # coth(x) = sign(x) * (1 + e^{-2|x|})/(1 - e^{-2|x|}), singular at x=0
-            with localcontext(Context(prec=self.prec)):
-                if x == 0:
-                    return Decimal('Infinity')
-                ctx = getcontext()
-                ax = x.copy_abs()
-                t = ctx.exp(Decimal(-2) * ax)
-                den = (Decimal(1) - t)
-                if den == 0:
-                    return Decimal('-Infinity') if x.is_signed() else Decimal('Infinity')
-                y = (Decimal(1) + t) / den
-                return -y if x.is_signed() else y
-        
-        def _sech_decimal(x: Decimal) -> Decimal:
-            # sech(x) = 2 e^{-|x|} / (1 + e^{-2|x|}) = 2 t / (1 + t^2)
-            with localcontext(Context(prec=self.prec)):
-                ctx = getcontext()
-                ax = x.copy_abs()
-                t = ctx.exp(-ax)
-                return (Decimal(2) * t) / (Decimal(1) + t * t)
-        
-        def _csch_decimal(x: Decimal) -> Decimal:
-            # csch(x) = sign(x) * 2 e^{-|x|} / (1 - e^{-2|x|}) = sign(x) * 2 t / (1 - t^2)
-            with localcontext(Context(prec=self.prec)):
-                if x == 0:
-                    return Decimal('Infinity')
-                ctx = getcontext()
-                ax = x.copy_abs()
-                t = ctx.exp(-ax)
-                den = (Decimal(1) - t * t)
-                if den == 0:
-                    return Decimal('-Infinity') if x.is_signed() else Decimal('Infinity')
-                y = (Decimal(2) * t) / den
-                return -y if x.is_signed() else y
-        
-        external_functions = {
-            (S("Tanh"), "tanh"): lambda args: _tanh_decimal(args[0]),
-            (S("Coth"), "coth"): lambda args: _coth_decimal(args[0]),
-            (S("Sech"), "sech"): lambda args: _sech_decimal(args[0]),
-            (S("Csch"), "csch"): lambda args: _csch_decimal(args[0]),
-        }
 
         self._evaluator = integrand.evaluator(
             {},
             functions,
             vars_list,
             iterations=0,
-            external_functions=external_functions,
-            decimal_digit_precision=self.prec
+            external_functions=external_functions
         )
+        with open(evaluator_path, "wb") as f:
+            f.write(self._evaluator.save())
+        self.force_rebuild = False
         gc.collect()
 
     def _evaluate_variables(self, variables: np.ndarray) -> np.ndarray:
         """Evaluate using high-precision evaluator."""
-        values_dec = self._evaluator.evaluate_with_prec(variables)
+        variables_dec = [[self._to_decimal(v) for v in row] for row in variables]
+        values_dec = [self._evaluator.evaluate_with_prec(row_dec, decimal_digit_precision=self.prec) for row_dec in variables_dec]
         # Convert Decimals to float64 for downstream compatibility
         return np.array([float(v[0]) for v in values_dec], dtype=np.float64).ravel()
