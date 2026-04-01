@@ -1,2 +1,2 @@
 numpy
-git+https://github.com/symbolica-dev/symbolica.git@dev
+symbolica
